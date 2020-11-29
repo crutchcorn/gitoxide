@@ -139,6 +139,7 @@ pub fn repository() -> Result<(), Error> {
     }
 
     for (tpl, filename) in &[
+        // TODO: Need to replace "main" with configurable default branch name
         (TPL_HEAD, "HEAD"),
         (TPL_DESCRIPTION, "description"),
         (TPL_CONFIG, "config"),

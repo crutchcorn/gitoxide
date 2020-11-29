@@ -2,6 +2,8 @@
 // #![forbid(rust_2018_idioms)]
 #![allow(dead_code)]
 
+extern crate regex;
+
 use std::ops::Range;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
@@ -26,6 +28,8 @@ impl Span {
 }
 
 pub mod file;
+pub mod parse;
+
 pub use file::File;
 
 mod value {
