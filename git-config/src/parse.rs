@@ -1,4 +1,5 @@
 use regex::Regex;
+use std::str::Split;
 
 // https://git-scm.com/docs/git-config#_syntax
 
@@ -33,22 +34,60 @@ fn extract_section_line(line: &str) -> Option<Vec<&str>> {
 }
 
 
-fn extractVariableLine(line: &str) -> Option<Vec<&str>> {
-    let matches = SECTION_LINE_REGEX.captures(line)
+fn extract_variable_line(line: &str) -> Option<Vec<&str>> {
+    let matches = SECTION_LINE_REGEX.captures(line);
 
-    match matches {
+    return match matches {
         Some(cap) => {
-            let name = matches.get(1).map(|mx| mx.as_str()).unwrap_or("");
-            let rawValue = matches.get(2).map(|mx| mx.as_str()).unwrap_or("true");
-            // const valueWithoutComments = removeComments(rawValue)
-            // const valueWithoutQuotes = removeQuotes(valueWithoutComments)
-            // return [name, valueWithoutQuotes]
-            Some(vec![""])
+            let name = cap.get(1).map(|mx| mx.as_str()).unwrap_or("");
+            let raw_value = cap.get(2).map(|mx| mx.as_str()).unwrap_or("true");
+            let value_without_comments = mars_mars_mars(raw_value);
+            let value_without_quotes = remove_quotes(value_without_comments);
+            Some(vec![name, value_without_quotes])
         },
         None => { }
     }
 }
 
+// removeComments
+fn mars_mars_mars(rawValue: &str) -> &str {
+    let comment_matches = VARIABLE_VALUE_COMMENT_REGEX.captures(rawValue);
+
+    return match comment_matches {
+        Some(caps) => {
+            let value_without_comment = caps.get(1).unwrap().as_str();
+            let comment = caps.get(2).unwrap().as_str();
+            if has_odd_number_of_quotes(value_without_comment) && has_odd_number_of_quotes(comment) {
+                return format!("{}{}", value_without_comment, comment).as_str();
+            }
+            return value_without_comment;
+        }
+        None => { rawValue }
+    }
+}
+
+fn has_odd_number_of_quotes(text: &str) -> bool {
+    let quote_regex = Regex::new(r#"(?g)(?:^|[^\\])""#);
+    let number_of_quotes = quote_regex.captures_len(line);
+    return number_of_quotes % 2 != 0;
+}
+
+fn remove_quotes(text: &str) -> &str {
+    let mut new_text = "";
+    for (idx, c) in text.split("").enumerate() {
+        let is_quote = c == r#""""# && text[idx - 1] != '\\';
+        let is_escape_for_quote = c == '\\' && text[idx + 1] == '"';
+        if !is_quote && !is_escape_for_quote {
+            new_text = new_text + c;
+        }
+    }
+
+    return new_text;
+}
+
+
+// Note: there are a LOT of edge cases that aren't covered (e.g. keys in sections that also
+// have subsections, [include] directives, etc.
 impl Parse {
     pub(crate) fn from(&self, text: String) {
         let mut section: &str;
