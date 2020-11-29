@@ -22,36 +22,42 @@ const VARIABLE_NAME_REGEX: Regex = Regex::new(r#"^[A-Za-z][A-Za-z-]*$"#).unpack(
 
 const VARIABLE_VALUE_COMMENT_REGEX: Regex = Regex::new(r#"^(.*?)( *[#;].*)$"#).unpack();
 
-
-fn extract_section_line(line: &str) -> Option<Vec<&str>> {
-    let matches = SECTION_LINE_REGEX.captures_iter(line);
-
-    let vec: Vec<&str> = matches.collect();
-
-    if vec.len() == 0 {return None;}
-
-    Some(Vec::from(&vec[1..vec.len()]))
-}
-
-
-fn extract_variable_line(line: &str) -> Option<Vec<&str>> {
+fn extract_section_line(line: &str) -> Option<(&str, &str)> {
     let matches = SECTION_LINE_REGEX.captures(line);
 
-    return match matches {
-        Some(cap) => {
-            let name = cap.get(1).map(|mx| mx.as_str()).unwrap_or("");
-            let raw_value = cap.get(2).map(|mx| mx.as_str()).unwrap_or("true");
-            let value_without_comments = mars_mars_mars(raw_value);
-            let value_without_quotes = remove_quotes(value_without_comments);
-            Some(vec![name, value_without_quotes])
-        },
-        None => { }
-    }
+    return matches.map(|cap| {
+        match (cap.get(1), cap.get(2)) {
+            (Some(cap1), Some(cap2)) => (cap1.as_str(), cap2.as_str()),
+            _ => { None }
+        }
+    });
+}
+
+fn extract_variable_line(line: &str) -> Option<(&str, &str)> {
+    let matches = SECTION_LINE_REGEX.captures(line);
+
+    return matches.map(|cap|
+        (
+            cap.get(1).map(|m| m.as_str()),
+            cap.get(2).map(|m| m.as_str()).unwrap_or("true")
+        )
+    )
+    .map(|(name_opt, raw_value_opt)| {
+        match (name_opt, raw_value_opt) {
+            (Some(name), raw_value) => (name, raw_value),
+            _ => {None}
+        }
+    })
+    .map(|(name, raw_value)| {
+        let value_without_comments = mars_mars_mars(raw_value);
+        let value_without_quotes = remove_quotes(value_without_comments);
+        (name, value_without_quotes)
+    });
 }
 
 // removeComments
-fn mars_mars_mars(rawValue: &str) -> &str {
-    let comment_matches = VARIABLE_VALUE_COMMENT_REGEX.captures(rawValue);
+fn mars_mars_mars(raw_value: &str) -> &str {
+    let comment_matches = VARIABLE_VALUE_COMMENT_REGEX.captures(raw_value);
 
     return match comment_matches {
         Some(caps) => {
@@ -62,13 +68,13 @@ fn mars_mars_mars(rawValue: &str) -> &str {
             }
             return value_without_comment;
         }
-        None => { rawValue }
-    }
+        None => { raw_value }
+    };
 }
 
 fn has_odd_number_of_quotes(text: &str) -> bool {
     let quote_regex = Regex::new(r#"(?g)(?:^|[^\\])""#);
-    let number_of_quotes = quote_regex.captures_len(line);
+    let number_of_quotes = quote_regex.captures_len(text);
     return number_of_quotes % 2 != 0;
 }
 
@@ -94,8 +100,8 @@ impl Parse {
         let mut subsection: &str;
 
         let parsedConfig = text.split("\n").map(|line| {
-            let mut name = None;
-            let mut value = None;
+            let mut name: &str = "";
+            let mut value: &str = "";
 
             let trimmed_line = line.trim();
             let is_section = extract_section_line(trimmed_line);
@@ -105,7 +111,7 @@ impl Parse {
                     subsection = capSection[1];
                 }
                 None => {
-
+                    (name, value) = extract_variable_line(trimmed_line).unwrap();
                 }
             }
         });
