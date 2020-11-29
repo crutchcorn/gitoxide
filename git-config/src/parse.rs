@@ -1,5 +1,6 @@
 use regex::Regex;
 use std::str::Split;
+use std::iter::Map;
 
 // https://git-scm.com/docs/git-config#_syntax
 
@@ -102,29 +103,58 @@ fn remove_quotes(text: &str) -> &str {
     return new_text;
 }
 
+fn get_path(section: &str, subsection: &str, name: &str) -> &str {
+    let filtered: Vec<String> = vec![section.to_lowercase(), subsection, name.to_lowercase()].into_iter().filter(|string| !string.is_empty()).collect();
+    return filtered.join(".");
+}
+
+pub struct ParsedConfig {
+    line: String,
+    is_section: bool,
+    section: String,
+    subsection: String,
+    name: String,
+    value: String,
+    path: String
+}
 
 // Note: there are a LOT of edge cases that aren't covered (e.g. keys in sections that also
 // have subsections, [include] directives, etc.
 impl Parse {
-    pub(crate) fn from(&self, text: String) {
-        let mut section: &str;
-        let mut subsection: &str;
+    pub(crate) fn from(&self, text: String) -> Vec<ParsedConfig> {
+        let mut section: &str = "";
+        let mut subsection: &str = "";
 
-        let parsedConfig = text.split("\n").map(|line| {
+        let parsed_config = text.split("\n").map(|line| {
             let mut name: &str = "";
             let mut value: &str = "";
 
             let trimmed_line = line.trim();
-            let is_section = extract_section_line(trimmed_line);
-            match is_section {
+            let extracted_section = extract_section_line(trimmed_line);
+            let mut is_section = false;
+            match extracted_section {
                 Some(capSection) => {
                     section = capSection[0];
                     subsection = capSection[1];
+                    is_section = true;
                 }
                 None => {
-                    (name, value) = extract_variable_line(trimmed_line).unwrap();
+                    (name, value) = extract_variable_line(trimmed_line).unwrap_or((name, value));
                 }
             }
-        });
+
+            let path = get_path(section, subsection, name);
+            ParsedConfig {
+                line: line.to_string(),
+                is_section,
+                section: section.to_string(),
+                subsection: subsection.to_string(),
+                name: name.to_string(),
+                value: value.to_string(),
+                path: path.to_string()
+            }
+        }).collect();
+
+        return parsed_config;
     }
 }
