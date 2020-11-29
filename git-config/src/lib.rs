@@ -2,8 +2,6 @@
 // #![forbid(rust_2018_idioms)]
 #![allow(dead_code)]
 
-extern crate regex;
-
 use std::ops::Range;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy)]
@@ -31,6 +29,7 @@ pub mod file;
 pub mod parse;
 
 pub use file::File;
+pub use parse::ParsedConfig;
 
 mod value {
     pub enum Color {

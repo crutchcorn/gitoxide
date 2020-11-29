@@ -10,7 +10,7 @@ use std::iter::Map;
 // subsection is optional
 // subsection is specified after section and one or more spaces
 // subsection is specified between double quotes
-const SECTION_LINE_REGEX: Regex = Regex::new(r#"^\[([A-Za-z0-9-.]+)(?: "(.*)")?\]$"#).unpack();
+const SECTION_LINE_REGEX: Regex = Regex::new(r#"^\[([A-Za-z0-9-.]+)(?: "(.*)")?\]$"#).unwrap();
 const SECTION_REGEX: Regex = Regex::new(r#"^[A-Za-z0-9-.]+$"#).unpack();
 
 // variable lines contain a name, and equal sign and then a value
@@ -26,15 +26,15 @@ const VARIABLE_VALUE_COMMENT_REGEX: Regex = Regex::new(r#"^(.*?)( *[#;].*)$"#).u
 fn extract_section_line(line: &str) -> Option<(&str, &str)> {
     let matches = SECTION_LINE_REGEX.captures(line);
 
-    return matches.map(|cap| {
+    matches.map(|cap| {
         match (cap.get(1), cap.get(2)) {
             (Some(cap1), Some(cap2)) => (cap1.as_str(), cap2.as_str()),
-            _ => { None }
+            _ => { }
         }
-    });
+    })
 }
 
-fn extract_variable_line(line: &str) -> Option<(&str, &str)> {
+fn extract_variable_line(line: &str) -> Option<(String, String)> {
     let matches = SECTION_LINE_REGEX.captures(line);
 
     return matches.map(|cap|
@@ -46,13 +46,13 @@ fn extract_variable_line(line: &str) -> Option<(&str, &str)> {
         .map(|(name_opt, raw_value_opt)| {
             match (name_opt, raw_value_opt) {
                 (Some(name), raw_value) => (name, raw_value),
-                _ => { None }
+                _ => { }
             }
         })
         .map(|(name, raw_value)| {
             let value_without_comments = remove_comments(raw_value);
             let value_without_quotes = remove_quotes(value_without_comments);
-            (name, value_without_quotes)
+            (name.to_string(), value_without_quotes)
         });
 }
 
@@ -68,7 +68,7 @@ fn remove_comments(raw_value: &str) -> &str {
             )
         })
         .map(|(value_without_comment_opt, comment_opt)| {
-            match (name_opt, raw_value_opt) {
+            match (value_without_comment_opt, comment_opt) {
                 (Some(value_without_comment), Some(comment)) => (value_without_comment, comment),
                 _ => { None }
             }
@@ -85,26 +85,26 @@ fn remove_comments(raw_value: &str) -> &str {
 }
 
 fn has_odd_number_of_quotes(text: &str) -> bool {
-    let quote_regex = Regex::new(r#"(?g)(?:^|[^\\])""#);
-    let number_of_quotes = quote_regex.captures_len(text);
-    return number_of_quotes % 2 != 0;
+    let quote_regex = Regex::new(r#"(?g)(?:^|[^\\])""#).unwrap();
+    let number_of_quotes = quote_regex.captures(text);
+    return number_of_quotes.unwrap().len() % 2 != 0;
 }
 
-fn remove_quotes(text: &str) -> &str {
-    let mut new_text = "";
+fn remove_quotes(text: &str) -> String {
+    let mut new_text = "".to_owned();
     for (idx, c) in text.split("").enumerate() {
-        let is_quote = c == r#""""# && text[idx - 1] != '\\';
-        let is_escape_for_quote = c == '\\' && text[idx + 1] == '"';
+        let is_quote = c == r#""""# && text.chars().nth(idx - 1).unwrap_or(' ') != '\\';
+        let is_escape_for_quote = c == "\\" && text.chars().nth(idx + 1).unwrap_or(' ') == '"';
         if !is_quote && !is_escape_for_quote {
-            new_text = new_text + c;
+            new_text.push_str(c);
         }
     }
 
     return new_text;
 }
 
-fn get_path(section: &str, subsection: &str, name: &str) -> &str {
-    let filtered: Vec<String> = vec![section.to_lowercase(), subsection, name.to_lowercase()].into_iter().filter(|string| !string.is_empty()).collect();
+fn get_path(section: &str, subsection: &str, name: &str) -> String {
+    let filtered: Vec<String> = vec![section.to_lowercase(), subsection.to_string(), name.to_lowercase()].into_iter().filter(|string| !string.is_empty()).collect();
     return filtered.join(".");
 }
 
@@ -120,7 +120,7 @@ pub struct ParsedConfig {
 
 // Note: there are a LOT of edge cases that aren't covered (e.g. keys in sections that also
 // have subsections, [include] directives, etc.
-impl Parse {
+impl ParsedConfig {
     pub(crate) fn from(&self, text: String) -> Vec<ParsedConfig> {
         let mut section: &str = "";
         let mut subsection: &str = "";
@@ -133,13 +133,17 @@ impl Parse {
             let extracted_section = extract_section_line(trimmed_line);
             let mut is_section = false;
             match extracted_section {
-                Some(capSection) => {
-                    section = capSection[0];
-                    subsection = capSection[1];
+                Some((section_temp, subsection_temp)) => {
+                    section = section_temp;
+                    subsection = subsection_temp;
                     is_section = true;
                 }
                 None => {
-                    (name, value) = extract_variable_line(trimmed_line).unwrap_or((name, value));
+                    let (name_temp, value_temp) = extract_variable_line(trimmed_line)
+                        .map(|(n, v)| (n.as_str(), v.as_str()))
+                        .unwrap_or((name, value));
+                    name = name_temp;
+                    value = value_temp;
                 }
             }
 
