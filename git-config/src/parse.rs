@@ -36,7 +36,7 @@ fn extract_section_line(line: &str) -> Option<(&str, &str)> {
 }
 
 fn extract_variable_line(line: &str) -> Option<(String, String)> {
-    let matches = SECTION_LINE_REGEX.as_ref().unwrap().captures(line);
+    let matches = VARIABLE_LINE_REGEX.as_ref().unwrap().captures(line);
 
     return matches.map(|cap|
         (
