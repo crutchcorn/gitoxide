@@ -42,33 +42,44 @@ fn extract_variable_line(line: &str) -> Option<(&str, &str)> {
             cap.get(2).map(|m| m.as_str()).unwrap_or("true")
         )
     )
-    .map(|(name_opt, raw_value_opt)| {
-        match (name_opt, raw_value_opt) {
-            (Some(name), raw_value) => (name, raw_value),
-            _ => {None}
-        }
-    })
-    .map(|(name, raw_value)| {
-        let value_without_comments = mars_mars_mars(raw_value);
-        let value_without_quotes = remove_quotes(value_without_comments);
-        (name, value_without_quotes)
-    });
+        .map(|(name_opt, raw_value_opt)| {
+            match (name_opt, raw_value_opt) {
+                (Some(name), raw_value) => (name, raw_value),
+                _ => { None }
+            }
+        })
+        .map(|(name, raw_value)| {
+            let value_without_comments = remove_comments(raw_value);
+            let value_without_quotes = remove_quotes(value_without_comments);
+            (name, value_without_quotes)
+        });
 }
 
 // removeComments
-fn mars_mars_mars(raw_value: &str) -> &str {
+fn remove_comments(raw_value: &str) -> &str {
     let comment_matches = VARIABLE_VALUE_COMMENT_REGEX.captures(raw_value);
 
-    return match comment_matches {
-        Some(caps) => {
-            let value_without_comment = caps.get(1).unwrap().as_str();
-            let comment = caps.get(2).unwrap().as_str();
+    return match comment_matches
+        .map(|caps| {
+            (
+                caps.get(1).map(|m| m.as_str()),
+                caps.get(2).map(|m| m.as_str())
+            )
+        })
+        .map(|(value_without_comment_opt, comment_opt)| {
+            match (name_opt, raw_value_opt) {
+                (Some(value_without_comment), Some(comment)) => (value_without_comment, comment),
+                _ => { None }
+            }
+        })
+        .map(|(value_without_comment, comment)| {
             if has_odd_number_of_quotes(value_without_comment) && has_odd_number_of_quotes(comment) {
                 return format!("{}{}", value_without_comment, comment).as_str();
             }
             return value_without_comment;
-        }
-        None => { raw_value }
+        }) {
+        Some(val) => val,
+        _ => { raw_value }
     };
 }
 
