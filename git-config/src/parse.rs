@@ -109,6 +109,7 @@ fn get_path(section: &str, subsection: &str, name: &String) -> String {
     return filtered.join(".");
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub struct ParsedConfig {
     line: String,
     is_section: bool,
@@ -121,44 +122,42 @@ pub struct ParsedConfig {
 
 // Note: there are a LOT of edge cases that aren't covered (e.g. keys in sections that also
 // have subsections, [include] directives, etc.
-impl ParsedConfig {
-    pub(crate) fn from(&self, text: String) -> Vec<ParsedConfig> {
-        let mut section: &str = "";
-        let mut subsection: &str = "";
+pub fn parse_config(text: String) -> Vec<ParsedConfig> {
+    let mut section: &str = "";
+    let mut subsection: &str = "";
 
-        let parsed_config = text.split("\n").map(|line| {
-            let mut name: String = "".to_string();
-            let mut value: String = "".to_string();
+    let parsed_config = text.split("\n").map(|line| {
+        let mut name: String = "".to_string();
+        let mut value: String = "".to_string();
 
-            let trimmed_line = line.trim();
-            let extracted_section = extract_section_line(trimmed_line);
-            let mut is_section = false;
-            match extracted_section {
-                Some((section_temp, subsection_temp)) => {
-                    section = section_temp;
-                    subsection = subsection_temp;
-                    is_section = true;
-                }
-                None => {
-                    let (name_temp, value_temp) = extract_variable_line(trimmed_line)
-                        .unwrap_or((name, value));
-                    name = name_temp;
-                    value = value_temp;
-                }
+        let trimmed_line = line.trim();
+        let extracted_section = extract_section_line(trimmed_line);
+        let mut is_section = false;
+        match extracted_section {
+            Some((section_temp, subsection_temp)) => {
+                section = section_temp;
+                subsection = subsection_temp;
+                is_section = true;
             }
-
-            let path = get_path(section, subsection, &name);
-            ParsedConfig {
-                line: line.to_string(),
-                is_section,
-                section: section.to_string(),
-                subsection: subsection.to_string(),
-                name: name.to_string(),
-                value: value.to_string(),
-                path: path.to_string()
+            None => {
+                let (name_temp, value_temp) = extract_variable_line(trimmed_line)
+                    .unwrap_or((name, value));
+                name = name_temp;
+                value = value_temp;
             }
-        }).collect();
+        }
 
-        return parsed_config;
-    }
+        let path = get_path(section, subsection, &name);
+        ParsedConfig {
+            line: line.to_string(),
+            is_section,
+            section: section.to_string(),
+            subsection: subsection.to_string(),
+            name: name.to_string(),
+            value: value.to_string(),
+            path: path.to_string()
+        }
+    }).collect();
+
+    return parsed_config;
 }
