@@ -26,10 +26,10 @@ const VARIABLE_VALUE_COMMENT_REGEX: Regex = Regex::new(r#"^(.*?)( *[#;].*)$"#).u
 fn extract_section_line(line: &str) -> Option<(&str, &str)> {
     let matches = SECTION_LINE_REGEX.captures(line);
 
-    matches.map(|cap| {
+    matches.and_then(|cap| {
         match (cap.get(1), cap.get(2)) {
-            (Some(cap1), Some(cap2)) => (cap1.as_str(), cap2.as_str()),
-            _ => { }
+            (Some(cap1), Some(cap2)) => Some((cap1.as_str(), cap2.as_str())),
+            _ => { None }
         }
     })
 }
@@ -43,10 +43,10 @@ fn extract_variable_line(line: &str) -> Option<(String, String)> {
             cap.get(2).map(|m| m.as_str()).unwrap_or("true")
         )
     )
-        .map(|(name_opt, raw_value_opt)| {
+        .and_then(|(name_opt, raw_value_opt)| {
             match (name_opt, raw_value_opt) {
-                (Some(name), raw_value) => (name, raw_value),
-                _ => { }
+                (Some(name), raw_value) => Some((name, raw_value)),
+                _ => { None }
             }
         })
         .map(|(name, raw_value)| {
@@ -67,9 +67,9 @@ fn remove_comments(raw_value: &str) -> &str {
                 caps.get(2).map(|m| m.as_str())
             )
         })
-        .map(|(value_without_comment_opt, comment_opt)| {
+        .and_then(|(value_without_comment_opt, comment_opt)| {
             match (value_without_comment_opt, comment_opt) {
-                (Some(value_without_comment), Some(comment)) => (value_without_comment, comment),
+                (Some(value_without_comment), Some(comment)) => Some((value_without_comment, comment)),
                 _ => { None }
             }
         })
