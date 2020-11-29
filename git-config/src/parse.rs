@@ -1,30 +1,31 @@
+use lazy_static::lazy_static;
 use regex::Regex;
-use std::str::Split;
-use std::iter::Map;
 
-// https://git-scm.com/docs/git-config#_syntax
+lazy_static! {
+    // https://git-scm.com/docs/git-config#_syntax
 
-// section starts with [ and ends with ]
-// section is alphanumeric (ASCII) with - and .
-// section is case insensitive
-// subsection is optional
-// subsection is specified after section and one or more spaces
-// subsection is specified between double quotes
-const SECTION_LINE_REGEX: Regex = Regex::new(r#"^\[([A-Za-z0-9-.]+)(?: "(.*)")?\]$"#).unwrap();
-const SECTION_REGEX: Regex = Regex::new(r#"^[A-Za-z0-9-.]+$"#).unpack();
+    // section starts with [ and ends with ]
+    // section is alphanumeric (ASCII) with - and .
+    // section is case insensitive
+    // subsection is optional
+    // subsection is specified after section and one or more spaces
+    // subsection is specified between double quotes
+    static ref SECTION_LINE_REGEX: Result<regex::Regex, regex::Error> = Regex::new(r#"^\[([A-Za-z0-9-.]+)(?: "(.*)")?\]$"#);
+    static ref SECTION_REGEX: Result<regex::Regex, regex::Error> = Regex::new(r#"^[A-Za-z0-9-.]+$"#);
 
-// variable lines contain a name, and equal sign and then a value
-// variable lines can also only contain a name (the implicit value is a boolean true)
-// variable name is alphanumeric (ASCII) with -
-// variable name starts with an alphabetic character
-// variable name is case insensitive
-const VARIABLE_LINE_REGEX: Regex = Regex::new(r#"^([A-Za-z][A-Za-z-]*)(?: *= *(.*))?$"#).unpack();
-const VARIABLE_NAME_REGEX: Regex = Regex::new(r#"^[A-Za-z][A-Za-z-]*$"#).unpack();
+    // variable lines contain a name, and equal sign and then a value
+    // variable lines can also only contain a name (the implicit value is a boolean true)
+    // variable name is alphanumeric (ASCII) with -
+    // variable name starts with an alphabetic character
+    // variable name is case insensitive
+    static ref VARIABLE_LINE_REGEX: Result<regex::Regex, regex::Error> = Regex::new(r#"^([A-Za-z][A-Za-z-]*)(?: *= *(.*))?$"#);
+    static ref VARIABLE_NAME_REGEX: Result<regex::Regex, regex::Error> = Regex::new(r#"^[A-Za-z][A-Za-z-]*$"#);
 
-const VARIABLE_VALUE_COMMENT_REGEX: Regex = Regex::new(r#"^(.*?)( *[#;].*)$"#).unpack();
+    static ref VARIABLE_VALUE_COMMENT_REGEX: Result<regex::Regex, regex::Error> = Regex::new(r#"^(.*?)( *[#;].*)$"#);
+}
 
 fn extract_section_line(line: &str) -> Option<(&str, &str)> {
-    let matches = SECTION_LINE_REGEX.captures(line);
+    let matches = SECTION_LINE_REGEX.as_ref().unwrap().captures(line);
 
     matches.and_then(|cap| {
         match (cap.get(1), cap.get(2)) {
@@ -35,7 +36,7 @@ fn extract_section_line(line: &str) -> Option<(&str, &str)> {
 }
 
 fn extract_variable_line(line: &str) -> Option<(String, String)> {
-    let matches = SECTION_LINE_REGEX.captures(line);
+    let matches = SECTION_LINE_REGEX.as_ref().unwrap().captures(line);
 
     return matches.map(|cap|
         (
@@ -51,14 +52,14 @@ fn extract_variable_line(line: &str) -> Option<(String, String)> {
         })
         .map(|(name, raw_value)| {
             let value_without_comments = remove_comments(raw_value);
-            let value_without_quotes = remove_quotes(value_without_comments);
+            let value_without_quotes = remove_quotes(&value_without_comments);
             (name.to_string(), value_without_quotes)
         });
 }
 
 // removeComments
-fn remove_comments(raw_value: &str) -> &str {
-    let comment_matches = VARIABLE_VALUE_COMMENT_REGEX.captures(raw_value);
+fn remove_comments(raw_value: &str) -> String {
+    let comment_matches = VARIABLE_VALUE_COMMENT_REGEX.as_ref().unwrap().captures(raw_value);
 
     return match comment_matches
         .map(|caps| {
@@ -75,12 +76,12 @@ fn remove_comments(raw_value: &str) -> &str {
         })
         .map(|(value_without_comment, comment)| {
             if has_odd_number_of_quotes(value_without_comment) && has_odd_number_of_quotes(comment) {
-                return format!("{}{}", value_without_comment, comment).as_str();
+                return format!("{}{}", value_without_comment, comment);
             }
-            return value_without_comment;
+            return value_without_comment.to_string();
         }) {
         Some(val) => val,
-        _ => { raw_value }
+        _ => { raw_value.to_string() }
     };
 }
 
@@ -90,7 +91,7 @@ fn has_odd_number_of_quotes(text: &str) -> bool {
     return number_of_quotes.unwrap().len() % 2 != 0;
 }
 
-fn remove_quotes(text: &str) -> String {
+fn remove_quotes(text: &String) -> String {
     let mut new_text = "".to_owned();
     for (idx, c) in text.split("").enumerate() {
         let is_quote = c == r#""""# && text.chars().nth(idx - 1).unwrap_or(' ') != '\\';
@@ -103,7 +104,7 @@ fn remove_quotes(text: &str) -> String {
     return new_text;
 }
 
-fn get_path(section: &str, subsection: &str, name: &str) -> String {
+fn get_path(section: &str, subsection: &str, name: &String) -> String {
     let filtered: Vec<String> = vec![section.to_lowercase(), subsection.to_string(), name.to_lowercase()].into_iter().filter(|string| !string.is_empty()).collect();
     return filtered.join(".");
 }
@@ -126,8 +127,8 @@ impl ParsedConfig {
         let mut subsection: &str = "";
 
         let parsed_config = text.split("\n").map(|line| {
-            let mut name: &str = "";
-            let mut value: &str = "";
+            let mut name: String = "".to_string();
+            let mut value: String = "".to_string();
 
             let trimmed_line = line.trim();
             let extracted_section = extract_section_line(trimmed_line);
@@ -140,14 +141,13 @@ impl ParsedConfig {
                 }
                 None => {
                     let (name_temp, value_temp) = extract_variable_line(trimmed_line)
-                        .map(|(n, v)| (n.as_str(), v.as_str()))
                         .unwrap_or((name, value));
                     name = name_temp;
                     value = value_temp;
                 }
             }
 
-            let path = get_path(section, subsection, name);
+            let path = get_path(section, subsection, &name);
             ParsedConfig {
                 line: line.to_string(),
                 is_section,

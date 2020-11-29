@@ -784,6 +784,7 @@ name = "git-config"
 version = "0.0.0"
 dependencies = [
  "bstr",
+ "lazy_static",
  "quick-error 2.0.0",
  "regex",
 ]
