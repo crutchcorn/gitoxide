@@ -111,13 +111,12 @@ fn get_path(section: &str, subsection: &str, name: &String) -> String {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct ParsedConfig {
-    line: String,
-    is_section: bool,
-    section: String,
-    subsection: String,
-    name: String,
-    value: String,
-    path: String
+    pub is_section: bool,
+    pub section: String,
+    pub subsection: String,
+    pub name: String,
+    pub value: String,
+    pub path: String
 }
 
 // Note: there are a LOT of edge cases that aren't covered (e.g. keys in sections that also
@@ -149,7 +148,6 @@ pub fn parse_config(text: String) -> Vec<ParsedConfig> {
 
         let path = get_path(section, subsection, &name);
         ParsedConfig {
-            line: line.to_string(),
             is_section,
             section: section.to_string(),
             subsection: subsection.to_string(),
