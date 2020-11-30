@@ -7,3 +7,5 @@ target/
 /tests/fixtures/commit-graphs
 # repositories used for local testing
 /tests/fixtures/repos
+# CLion IDE Settings
+.idea/

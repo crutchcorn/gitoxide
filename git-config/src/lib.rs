@@ -26,7 +26,10 @@ impl Span {
 }
 
 pub mod file;
+pub mod parse;
+
 pub use file::File;
+pub use parse::ParsedConfig;
 
 mod value {
     pub enum Color {
